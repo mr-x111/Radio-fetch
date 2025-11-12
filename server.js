@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-const RADIO_BROWSER_API_BASE = 'https://radio-browser.info';
+const RADIO_BROWSER_API = 'https://de1.api.radio-browser.info/json/stations/search';
 
 app.get('/api/search', async (req, res) => {
   try {
@@ -21,9 +21,16 @@ app.get('/api/search', async (req, res) => {
       });
     }
 
-    const searchUrl = `${RADIO_BROWSER_API_BASE}/webservice/json/stations/search?name=${encodeURIComponent(station)}&hidebroken=true&order=votes&reverse=true&limit=100`;
-    
-    const apiResponse = await axios.get(searchUrl, { timeout: 10000 });
+    const apiResponse = await axios.get(RADIO_BROWSER_API, {
+      params: {
+        name: station,
+        limit: 100,
+        hidebroken: true,
+        order: 'votes',
+        reverse: true
+      },
+      timeout: 10000
+    });
 
     if (!apiResponse.data || apiResponse.data.length === 0) {
       return res.status(404).json({
@@ -32,18 +39,18 @@ app.get('/api/search', async (req, res) => {
       });
     }
 
-    const simplifiedStations = apiResponse.data.map(stationInfo => ({
-      name: stationInfo.name || 'Unknown',
-      url: stationInfo.url || '',
-      country: stationInfo.country || 'Unknown',
-      language: stationInfo.language || 'Unknown'
-    })).filter(station => station.url !== '');
+    const stations = apiResponse.data.map(stationInfo => ({
+      name: stationInfo.name,
+      url: stationInfo.url_resolved || stationInfo.url,
+      country: stationInfo.country,
+      language: stationInfo.language
+    })).filter(station => station.url);
 
     res.json({
       success: true,
       searchQuery: station,
-      totalStations: simplifiedStations.length,
-      stations: simplifiedStations
+      totalStations: stations.length,
+      stations: stations
     });
 
   } catch (error) {
